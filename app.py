@@ -1,64 +1,104 @@
 # =======================================================
 # PROJETO GAMEHUB - ENGENHARIA DE PRODUTO & IA DE GAMES
-# BUSCA GLOBAL DE TODAS AS GERAÇÕES (PLAYSTATION, NINTENDO, SEGA, XBOX)
+# BUSCA GLOBAL PROTEGIDA CONTRA ERROS DE CONEXÃO (TODOS OS CONSOLES)
 # =======================================================
 import urllib.request
 import json
 import urllib.parse
 
+# Banco de dados local 100% seguro para evitar quedas de rede no seu vídeo
+BANCO_IA_LOCAL = {
+    "gta 5": {
+        "nome": "Grand Theft Auto V",
+        "empresa": "Rockstar Games",
+        "plataformas": "PS3, PS4, PS5, Xbox 360, Xbox One, Xbox Series X/S, PC",
+        "sinopse": "Três criminosos totalmente diferentes alinham seus objetivos em Los Santos para aplicar grandes golpes."
+    },
+    "gta san andreas": {
+        "nome": "Grand Theft Auto: San Andreas",
+        "empresa": "Rockstar Games",
+        "plataformas": "PS2, PS3, Xbox, Xbox 360, PC, Android, iOS",
+        "sinopse": "Carl Johnson (CJ) precisa salvar sua família e tomar o controle das ruas do estado fictício de San Andreas."
+    },
+    "manhunt 2": {
+        "nome": "Manhunt 2",
+        "empresa": "Rockstar Games",
+        "plataformas": "PS2, PSP, Nintendo Wii, PC",
+        "sinopse": "Um experimento secreto em um laboratório de asilo mental dá terrivelmente errado, liberando uma caçada humana violenta."
+    },
+    "postal 2": {
+        "nome": "Postal 2",
+        "empresa": "Running With Scissors",
+        "plataformas": "PC (Windows, Linux, macOS)",
+        "sinopse": "Acompanhe uma semana bizarra na vida do Postal Dude, realizando tarefas diárias simples que sempre saem do controle."
+    },
+    "god of war": {
+        "nome": "God of War (Série)",
+        "empresa": "Santa Monica Studio",
+        "plataformas": "PlayStation 2, PS3, PS4, PS5, PC",
+        "sinopse": "A jornada mitológica de Kratos, o Fantasma de Esparta, contra os deuses olímpicos e nórdicos."
+    },
+    "super mario world": {
+        "nome": "Super Mario World",
+        "empresa": "Nintendo",
+        "plataformas": "Super Nintendo (SNES), Game Boy Advance, Virtual Console",
+        "sinopse": "Mario e Luigi precisam salvar a Princesa Peach e a Ilha dos Dinossauros das garras do vilão Bowser."
+    }
+}
+
 
 def consultar_ia_historica(jogo_escolhido):
-    print(f"\n🤖 [GAMEHUB AI]: Vasculhando registros históricos de todos os consoles por '{jogo_escolhido}'...")
+    busca = jogo_escolhido.lower().strip()
 
+    # 1. Tenta ler direto do banco local seguro (Proteção contra quedas de API)
+    if busca in BANCO_IA_LOCAL:
+        info = BANCO_IA_LOCAL[busca]
+        print("\n🤖 [GAMEHUB AI]: Processando informações locais com sucesso...")
+        print("--------------------------------------------------")
+        print(f"🎮 TÍTULO OFICIAL: {info['nome']}")
+        print(f"🏢 EMPRESA: {info['empresa']}")
+        print(f"🖥️ PLATAFORMAS: {info['plataformas']}")
+        print(f"📖 SINOPSE HISTÓRICA: {info['sinopse']}")
+        print("--------------------------------------------------")
+        return
+
+    # 2. Se for outro jogo aleatório, usa a busca global da internet
+    print(f"\n🤖 [GAMEHUB AI]: Consultando registros externos por '{jogo_escolhido}'...")
     try:
-        # Formata o termo de busca para a API da Wikipedia em português
         termo_busca = jogo_escolhido.strip() + " (jogo eletrônico)"
-        url_base = "https://wikipedia.org"
+        url_base = "https://pt.wikipedia.org/w/api.php"
         url_busca = f"{url_base}?action=query&list=search&srsearch={urllib.parse.quote(termo_busca)}&format=json"
 
-        req = urllib.request.Request(url_busca, headers={'User-Agent': 'GameHubProductBot/1.0'})
+        # User-Agent modificado para o servidor da Wikipedia não bloquear a chamada
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) GameHubProductBot/1.0'}
+        req = urllib.request.Request(url_busca, headers=headers)
+        
         with urllib.request.urlopen(req) as response:
             dados_busca = json.loads(response.read().decode())
 
-            if not dados_busca['query']['search']:
-                # Se não achar com o sufixo, tenta busca genérica
-                url_busca = f"{url_base}?action=query&list=search&srsearch={urllib.parse.quote(jogo_escolhido)}&format=json"
-                req_gen = urllib.request.Request(url_busca, headers={'User-Agent': 'GameHubProductBot/1.0'})
-                with urllib.request.urlopen(req_gen) as resp2:
-                    dados_busca = json.loads(resp2.read().decode())
-
             if dados_busca['query']['search']:
-                # Pega o título exato do artigo encontrado
-                titulo_artigo = dados_busca['query']['search']['title']
+                titulo_artigo = dados_busca['query']['search'][0]['title']
 
-                # Faz uma segunda chamada para pegar o resumo (sinopse) do artigo
                 url_conteudo = f"{url_base}?action=query&prop=extracts&exintro&explaintext"
                 url_conteudo += f"&titles={urllib.parse.quote(titulo_artigo)}&format=json"
                 
-                req_cont = urllib.request.Request(url_conteudo, headers={'User-Agent': 'GameHubProductBot/1.0'})
+                req_cont = urllib.request.Request(url_conteudo, headers=headers)
                 with urllib.request.urlopen(req_cont) as resp_conteudo:
-                    dados_conteudo = json.loads(resp_conteudo.read().decode())
-                    paginas = dados_conteudo['query']['pages']
-                    id_pagina = list(paginas.keys())
-                    sinopse = paginas[id_pagina]['extract']
+                    paginas = json.loads(resp_conteudo.read().decode())['query']['pages']
+                    sinopse = paginas[list(paginas.keys())[0]]['extract']
 
-                    # Corta a sinopse se for longa demais para o terminal
                     if len(sinopse) > 400:
                         sinopse = sinopse[:400] + "..."
 
                     print("--------------------------------------------------")
-                    print(f"🎮 TÍTULO OFICIAL: {titulo_artigo.replace(' (jogo eletrônico)', '')}")
-                    print("📖 DETALHES HISTÓRICOS & SINOPSE:")
-                    print(f"   {sinopse}")
+                    print(f"🎮 TÍTULO ENCONTRADO: {titulo_artigo.replace(' (jogo eletrônico)', '')}")
+                    print(f"📖 RESUMO DA BASE GLOBAL:\n   {sinopse}")
                     print("--------------------------------------------------")
-                    print("🤖 [DICA IA]: Você pode pesquisar clássicos de qualquer console:")
-                    print("   'Super Mario World', 'Sonic Mega Drive', 'Halo Xbox' ou 'Zelda Switch'.")
-                    print("--------------------------------------------------")
-            else:
-                print("❌ Jogo não localizado nos registros históricos da IA. Verifique o nome!")
+                    return
+            print("❌ Jogo não localizado nos registros globais. Verifique a grafia!")
 
     except Exception:
-        print("⚠️ Erro de rede ou comunicação ao consultar a base de dados histórica.")
+        print("⚠️ Erro temporário de comunicação externa. Use os títulos sugeridos do menu!")
 
 
 def iniciar_sistema():
@@ -72,7 +112,7 @@ def iniciar_sistema():
         print("1. Cadastrar Jogador e Preferências de Jogos")
         print("2. Criar Sala de Partida Multiplayer / Co-op")
         print("3. Listar Salas e Jogadores Online")
-        print("4. Perguntar para a IA (Busca Global - Todos os Consoles)")
+        print("4. Perguntar para a IA (Manhunt 2, Postal 2, GTA 5, Mario...)")
         print("5. Sair do Sistema")
         print("==================================================")
 
@@ -96,7 +136,7 @@ def iniciar_sistema():
             print(f"Salas Ativas: {salas if salas else 'Nenhuma sala aberta'}")
 
         elif opcao == "4":
-            print("Digite QUALQUER jogo da história (Ex: Super Mario World, Sonic Mega Drive, Halo, Zelda):")
+            print("Digite um jogo (Sugestões seguras: manhunt 2, postal 2, gta 5, super mario world):")
             jogo_consulta = input("Nome do jogo: ")
             consultar_ia_historica(jogo_consulta)
 
