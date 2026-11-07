@@ -32,4 +32,3 @@ O projeto foi desenvolvido utilizando os conceitos de **Programação Orientada 
    ```bash
    python app.py
    ```
-*(Nota: O sistema já inicia com uma carga de dados de teste (Mock) com jogadores profissionais famosos para facilitar a demonstração imediata do Matchmaking Inteligente).*
